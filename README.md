@@ -1,5 +1,5 @@
 
-<img src="resource/icon.png" style="height:126px">
+<img src="resource/icon.png" height="126" width="126" >
 
 # Stupid Backup
 A simple and almost stupid windows application to do incremental backups
