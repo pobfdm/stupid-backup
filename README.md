@@ -11,3 +11,5 @@ hard disk) where the backups should be stored,double click on it and
 
 You can also manage your exclusions on exclusions.txt files generated at
 the first start by following the syntax of rsync.
+
+[**Download**](http://www.freemedialab.org/listing/stupid-backup/)
