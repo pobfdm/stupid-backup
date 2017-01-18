@@ -67,7 +67,7 @@ void runBackup()
 	
 	GError* error=NULL;
 	gchar* rsync=g_build_filename(g_get_tmp_dir(),"rsync.exe",NULL);
-	gchar* cmd= g_strdup_printf("%s --delete --log-file=myBackup.log --exclude-from='exclusions.txt' -avhz --progress \"%s\" \"%s\"   ", rsync,homedir, backupFolder);
+	gchar* cmd= g_strdup_printf("%s --delete --log-file=myBackup.log --exclude-from=exclusions.txt -avz  \"%s\" \"%s\"   ", rsync,homedir, backupFolder);
 	
 	system(cmd);
 	
@@ -162,7 +162,8 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPSTR lpCmdLine,int nShow
 	
 	if (!g_file_test("exclusions.txt",G_FILE_TEST_EXISTS))
 	{
-		g_file_set_contents("exclusions.txt", " ", -1, NULL);
+		//g_file_set_contents("exclusions.txt", " ", -1, NULL);
+		system ("echo. 2>exclusions.txt");
 	}
    
    
