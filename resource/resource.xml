@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/org/stupid-backup/resource">
-	<file>cygcrypto-1.0.0.dll</file>
-	<file>cyggcc_s-1.dll</file>
-	<file>cygiconv-2.dll</file>
-	<file>cygintl-8.dll</file>
-	<file>cygpopt-0.dll</file>
-	<file>cygssp-0.dll</file>
-	<file>cygwin1.dll</file>
-	<file>cygz.dll</file>
-	<file>rsync.exe</file>
-	<file>ssh.exe</file>
-	<file>ssh-keygen.exe</file>
-	<file>stupid-backup-locale.mo.it</file>
+	<file compressed="true">cygcrypto-1.0.0.dll</file>
+	<file compressed="true">cyggcc_s-1.dll</file>
+	<file compressed="true">cygiconv-2.dll</file>
+	<file compressed="true">cygintl-8.dll</file>
+	<file compressed="true">cygpopt-0.dll</file>
+	<file compressed="true">cygssp-0.dll</file>
+	<file compressed="true">cygwin1.dll</file>
+	<file compressed="true">cygz.dll</file>
+	<file compressed="true">rsync.exe</file>
+	<file compressed="true">ssh.exe</file>
+	<file compressed="true">ssh-keygen.exe</file>
+	<file compressed="true">stupid-backup-locale.mo.it</file>
   </gresource>
 </gresources>
