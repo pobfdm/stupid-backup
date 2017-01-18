@@ -29,3 +29,12 @@ msgstr "Vuoi fare un backup completo di tutto il tuo utente?"
 #: main.c:66
 msgid "backup finished"
 msgstr "Backup completo"
+
+msgid "Run backup"
+msgstr "Avvia backup"
+
+msgid "About..."
+msgstr "Info su..."
+
+msgid "Exit"
+msgstr "Uscita"
