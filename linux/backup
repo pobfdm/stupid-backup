@@ -1,0 +1,6 @@
+#!/bin/bash
+
+rm -f myBackup.log
+touch exclusions.txt
+xterm -e "rsync --links  --delete --log-file=myBackup.log --exclude-from=exclusions.txt -avz $HOME  ./backup-incrementale/  "
+
