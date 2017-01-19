@@ -112,12 +112,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 					if(res==IDYES)
 					{
 						runBackup();
-						MessageBox( NULL, _("backup finished"), "Stupid Backup", MB_OK | MB_ICONINFORMATION| MB_TASKMODAL);
 						ShowWindow(hwnd,SW_SHOW);
-						ShowWindow(hwnd,SW_RESTORE);
+						SwitchToThisWindow(hwnd, TRUE);
+						MessageBox( hwnd, _("backup finished"), "Stupid Backup", MB_OK | MB_ICONINFORMATION| MB_TASKMODAL);
+						
 					}else{
+						SwitchToThisWindow(hwnd, TRUE);
 						ShowWindow(hwnd,SW_SHOW);
-						ShowWindow(hwnd,SW_RESTORE);
 					}
 					
 					
