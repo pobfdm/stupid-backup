@@ -67,9 +67,10 @@ void runBackup()
 	
 	GError* error=NULL;
 	gchar* rsync=g_build_filename(g_get_tmp_dir(),"rsync.exe",NULL);
-	gchar* cmd= g_strdup_printf("%s --delete --log-file=myBackup.log --exclude-from=exclusions.txt -avz  \"%s\" \"%s\"   ", rsync,homedir, backupFolder);
+	gchar* cmd= g_strdup_printf("%s --delete --log-file=myBackup.log --info=progress2 --exclude-from=exclusions.txt -avz  \"%s\" \"%s\"   ", rsync,homedir, backupFolder);
 	
 	system(cmd);
+	//g_spawn_command_line_sync(cmd,NULL,NULL,NULL,NULL);
 	
 }
 
@@ -133,7 +134,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 				
 				case IDC_EXIT_BUTTON:
 				{
-					PostQuitMessage( 0);
+					 WindowProc(hwnd, WM_CLOSE,NULL,NULL);
+					//PostQuitMessage(0);
+					exit(0);
 				}
 				break;
 			}
@@ -142,7 +145,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
 
     case WM_DESTROY:
-      PostQuitMessage(0);
+		//PostQuitMessage(0);
+		WindowProc(hwnd, WM_CLOSE,NULL,NULL);
+		exit(0);	
       break;
 
     default:
@@ -164,7 +169,15 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPSTR lpCmdLine,int nShow
 	if (!g_file_test("exclusions.txt",G_FILE_TEST_EXISTS))
 	{
 		//g_file_set_contents("exclusions.txt", " ", -1, NULL);
-		system ("echo. 2>exclusions.txt");
+		//system ("echo. 2>exclusions.txt");
+		FILE *f = fopen("exclusions.txt", "w");
+		if (f == NULL)
+		{
+			printf(_("Error on create exclusions.txt file!\n"));
+		}
+		fclose(f);
+
+		
 	}
    
    
