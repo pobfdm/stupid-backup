@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <windows.h>
+#include <commctrl.h>
 #include <gio/gio.h>
 
 #include<libintl.h> //gettex
@@ -14,7 +15,14 @@
 gchar* homedir, *username, *backupFolder;
 char hostname[256];
 HWND hwnd;
-HBITMAP hBitmap;
+HWND hWndButton0;
+
+HWND hwndPB;
+gboolean chkProgress=TRUE;
+int p=0;
+FILE * outFile;
+STARTUPINFO si;
+PROCESS_INFORMATION pi;
 
 void copyFromResource(gchar* source, gchar* dest )
 {
@@ -53,24 +61,72 @@ int initRsync()
 
 void runBackup()
 {
+	//Gui
+	ShowWindow(hwnd,SW_SHOW);
+	SwitchToThisWindow(hwnd, TRUE);
+	EnableWindow(hWndButton0, FALSE);
+	ShowWindow(hwndPB, SW_NORMAL);
+	SendMessage( hwndPB, PBM_SETMARQUEE, TRUE, 0 );
+	
+	
 	printf("Backup running...\n");
+	chkProgress=TRUE;
+	
 	initRsync();
 	homedir= g_strdup_printf("/cygdrive/c/Users/%s/", g_get_user_name());
 	username= g_strdup_printf("%s",g_get_user_name ());
 	gethostname(hostname,256);
-	backupFolder=g_strdup_printf("%s-%s-(%s)/","myBackup",username,hostname);
 	
-	g_mkdir (backupFolder,0777);
+	if (!g_file_test("destination.txt",G_FILE_TEST_EXISTS))
+	{
+		backupFolder=g_strdup_printf("%s-%s-(%s)/","myBackup",username,hostname);
+		g_mkdir (backupFolder,0777);
+	}else{
+		gchar** dest;
+		g_file_get_contents("destination.txt",&dest,NULL,NULL);
+		backupFolder=g_strdup_printf("/cygdrive/%s",dest);
+	}
 	
 	g_print("User Home-> %s\n", homedir);
 	g_print("User-> %s\n", username);
 	
 	GError* error=NULL;
 	gchar* rsync=g_build_filename(g_get_tmp_dir(),"rsync.exe",NULL);
-	gchar* cmd= g_strdup_printf("%s --delete --log-file=myBackup.log --info=progress2 --exclude-from=exclusions.txt -avz  \"%s\" \"%s\"   ", rsync,homedir, backupFolder);
+	gchar *cmd;
 	
-	system(cmd);
-	//g_spawn_command_line_sync(cmd,NULL,NULL,NULL,NULL);
+	
+	if (!g_file_test("sources.txt",G_FILE_TEST_EXISTS))
+	{
+		cmd= g_strdup_printf("%s --delete  --log-file=myBackup.log --info=progress2 --exclude-from=exclusions.txt -avzr --perms --chmod=a=rw,Da+x \"%s\" \"%s\"  ", rsync,homedir, backupFolder);
+	}else{
+		cmd= g_strdup_printf("%s --delete  --log-file=myBackup.log --info=progress2 --exclude-from=exclusions.txt -avzr --perms --chmod=a=rw,Da+x --files-from=sources.txt  /cygdrive/  \"%s\"  ", rsync, backupFolder);
+	}
+	
+		
+	if (CreateProcess(NULL, cmd, NULL, NULL, TRUE, NULL , NULL, NULL, &si, &pi))
+	{
+		
+		// Wait until child process exits.
+		WaitForSingleObject( pi.hProcess, INFINITE );
+		// Close process and thread handles. 
+		CloseHandle( pi.hProcess );
+		CloseHandle( pi.hThread );
+	}else {
+		MessageBox( NULL, GetLastError(), _("Warning"), MB_OK | MB_ICONERROR| MB_TASKMODAL);
+	}
+
+      
+	
+	chkProgress=FALSE;
+	
+	
+	//gui
+	EnableWindow(hWndButton0, TRUE);
+	SendMessage( hwndPB, PBM_SETMARQUEE, FALSE, 0 );
+	SendMessage(hwndPB, PBM_SETPOS, 100, 0);
+	MessageBox( hwnd, _("backup finished"), "Stupid Backup", MB_OK | MB_ICONINFORMATION| MB_TASKMODAL);
+	SendMessage(hwndPB, PBM_SETPOS, 0, 0);
+	ShowWindow(hwndPB, SW_HIDE);
 	
 }
 
@@ -89,9 +145,21 @@ void initGettex()
     copyFromResource("resource:///org/stupid-backup/resource/stupid-backup-locale.mo.it",g_build_filename(FolderLocaleIT,"LC_MESSAGES","stupid-backup-locale.mo",NULL) );
 }
 
+void killRsync()
+{
+	STARTUPINFO info={sizeof(info)};
+		PROCESS_INFORMATION processInfo;
+		if (CreateProcess(NULL, "taskkill  /f /im rsync.exe", NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &info, &processInfo))
+		{
+			WaitForSingleObject( pi.hProcess, INFINITE );
+			CloseHandle(processInfo.hProcess);
+			CloseHandle(processInfo.hThread);
+		}
+}
 
-
-
+void checkProgress(){
+		//you have any idea about it?
+}
 
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -106,16 +174,31 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
             {
 				case IDC_MAIN_BUTTON:
 				{
-					ShowWindow(hwnd,SW_HIDE);
-					
+					//ShowWindow(hwnd,SW_HIDE);
 					char* text=_("You want to run a full backup of your user?");
 					int res=MessageBox(hwnd, text, "Stupid Backup", MB_YESNO|MB_ICONINFORMATION);
 					if(res==IDYES)
 					{
-						runBackup();
-						ShowWindow(hwnd,SW_SHOW);
-						SwitchToThisWindow(hwnd, TRUE);
-						MessageBox( hwnd, _("backup finished"), "Stupid Backup", MB_OK | MB_ICONINFORMATION| MB_TASKMODAL);
+						//Check progress
+						CreateThread( 
+								NULL,                   // default security attributes
+								0,                      // use default stack size  
+								checkProgress,       // thread function name
+								NULL,          // argument to thread function 
+								0,                      // use default creation flags 
+								NULL);
+						
+						//run backup
+						CreateThread( 
+								NULL,                   // default security attributes
+								0,                      // use default stack size  
+								runBackup,       // thread function name
+								NULL,          // argument to thread function 
+								0,                      // use default creation flags 
+								NULL);		
+								
+								
+						
 						
 					}else{
 						SwitchToThisWindow(hwnd, TRUE);
@@ -134,8 +217,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 				
 				case IDC_EXIT_BUTTON:
 				{
-					 WindowProc(hwnd, WM_CLOSE,NULL,NULL);
-					//PostQuitMessage(0);
+					killRsync();
+					WindowProc(hwnd, WM_CLOSE,NULL,NULL);
+					CloseHandle( pi.hProcess );
+					CloseHandle( pi.hThread );
 					exit(0);
 				}
 				break;
@@ -146,6 +231,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
     case WM_DESTROY:
 		//PostQuitMessage(0);
+		killRsync();
 		WindowProc(hwnd, WM_CLOSE,NULL,NULL);
 		exit(0);	
       break;
@@ -155,6 +241,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
   }
   return 0;
 } 
+
+
+
 
 
 int WINAPI WinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPSTR lpCmdLine,int nShowCmd)
@@ -168,18 +257,22 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPSTR lpCmdLine,int nShow
 	
 	if (!g_file_test("exclusions.txt",G_FILE_TEST_EXISTS))
 	{
-		//g_file_set_contents("exclusions.txt", " ", -1, NULL);
-		//system ("echo. 2>exclusions.txt");
-		FILE *f = fopen("exclusions.txt", "w");
-		if (f == NULL)
+		FILE *f0 = fopen("exclusions.txt", "w");
+		if (f0 == NULL)
 		{
 			printf(_("Error on create exclusions.txt file!\n"));
 		}
-		fclose(f);
-
-		
+		fclose(f0);
 	}
-   
+   /*if (!g_file_test("sources.txt",G_FILE_TEST_EXISTS))
+	{
+		FILE *f1 = fopen("sources.txt", "w");
+		if (f1 == NULL)
+		{
+			printf(_("Error on create sources.txt file!\n"));
+		}
+		fclose(f1);
+	}*/
    
 	
 	//main win
@@ -205,15 +298,14 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPSTR lpCmdLine,int nShow
 
 	hwnd = CreateWindow(AppTitle,AppTitle,
 	WS_OVERLAPPEDWINDOW,
-	CW_USEDEFAULT,CW_USEDEFAULT,320,200,
+	CW_USEDEFAULT,CW_USEDEFAULT,320,260,
 	NULL,NULL,hInst,NULL);
 	
 	//disable maximize button
-	SetWindowLong(hwnd, GWL_STYLE,
-               GetWindowLong(hwnd, GWL_STYLE) & ~WS_MAXIMIZEBOX);
+	SetWindowLong(hwnd, GWL_STYLE, GetWindowLong(hwnd, GWL_STYLE) & ~WS_MAXIMIZEBOX);
 	
 	// Create "Run backup" button
-			HWND hWndButton0=CreateWindowEx(NULL,
+			hWndButton0=CreateWindowEx(NULL,
 				"BUTTON",
 				_("Run backup"),
 				WS_TABSTOP|WS_VISIBLE|
@@ -254,7 +346,19 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPSTR lpCmdLine,int nShow
 				hwnd,
 				(HMENU)IDC_EXIT_BUTTON,
 				GetModuleHandle(NULL),
-				NULL);			
+				NULL);
+	
+	// Create progressbar
+			hwndPB = CreateWindowEx(
+				0, PROGRESS_CLASS, (LPCWSTR)NULL,
+				WS_CHILD | WS_VISIBLE| PBS_MARQUEE,
+				100, 160, 120, 25,
+				hwnd, (HMENU) 0, hInst, NULL);
+				ShowWindow(hwndPB, SW_HIDE);
+									
+	
+	
+	
 	
 	
 	if (!hwnd)
@@ -268,6 +372,11 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPSTR lpCmdLine,int nShow
 	TranslateMessage(&msg);
 	DispatchMessage(&msg);
 	}
+	
+	
+	
+	
+	
 	
 	return 0;
 }
