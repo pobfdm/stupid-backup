@@ -3,6 +3,7 @@
 #include <commctrl.h>
 #include <gio/gio.h>
 
+
 #include<libintl.h> //gettex
 #include<locale.h>	//gettex
 #define _(String) gettext (String) //gettex
@@ -10,6 +11,7 @@
 #define IDC_MAIN_BUTTON	101			
 #define IDC_ABOUT_BUTTON 102
 #define IDC_EXIT_BUTTON 103
+#define IDC_CHECK_SHUTDOWN 104
 
 
 gchar* homedir, *username, *backupFolder;
@@ -17,12 +19,14 @@ char hostname[256];
 HWND hwnd;
 HWND hWndButton0;
 
-HWND hwndPB;
+HWND hwndPB, hWndCheckShutdown ;
 gboolean chkProgress=TRUE;
 int p=0;
 FILE * outFile;
 STARTUPINFO si;
 PROCESS_INFORMATION pi;
+BOOL checkedShutdown;
+
 
 void copyFromResource(gchar* source, gchar* dest )
 {
@@ -59,8 +63,48 @@ int initRsync()
 	
 }
 
+int GetPrivileges()
+{
+	HANDLE hToken; 
+	TOKEN_PRIVILEGES tkp; 
+ 
+	if (!OpenProcessToken(GetCurrentProcess(),TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) 
+	{
+	  wprintf(L"Error on Privileges ...\n");			
+      return( FALSE ); 
+	}
+   LookupPrivilegeValue(NULL, SE_SHUTDOWN_NAME, &tkp.Privileges[0].Luid); 
+ 
+   tkp.PrivilegeCount = 1;      
+   tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED; 
+ 
+ 
+   AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, 
+        (PTOKEN_PRIVILEGES)NULL, 0); 
+ 
+   if (GetLastError() != ERROR_SUCCESS)
+   { 
+     wprintf(L"Error on Privileges ...\n");
+      return FALSE; 
+	}
+}
+int Poweroff()
+{
+	GetPrivileges();
+ 
+	if (!ExitWindowsEx(EWX_POWEROFF, 0) )
+    {
+		wprintf(L"Error on shutdown \n");
+		return FALSE ;             
+	}else{
+		wprintf(L"Shutdown...\n");
+	}
+}
+
+
 void runBackup()
 {
+	
 	//Gui
 	ShowWindow(hwnd,SW_SHOW);
 	SwitchToThisWindow(hwnd, TRUE);
@@ -102,6 +146,12 @@ void runBackup()
 		cmd= g_strdup_printf("%s --delete  --log-file=myBackup.log --info=progress2 --exclude-from=exclusions.txt -avzr --perms --chmod=a=rw,Da+x --files-from=sources.txt  /cygdrive/  \"%s\"  ", rsync, backupFolder);
 	}
 	
+	if (g_file_test("cmdline.txt",G_FILE_TEST_EXISTS))
+	{
+		gchar *cmdline;
+		g_file_get_contents("cmdline.txt",&cmdline,NULL,NULL);
+		cmd=g_strdup_printf(cmdline, rsync);
+	}
 		
 	if (CreateProcess(NULL, cmd, NULL, NULL, TRUE, NULL , NULL, NULL, &si, &pi))
 	{
@@ -124,9 +174,16 @@ void runBackup()
 	EnableWindow(hWndButton0, TRUE);
 	SendMessage( hwndPB, PBM_SETMARQUEE, FALSE, 0 );
 	SendMessage(hwndPB, PBM_SETPOS, 100, 0);
-	MessageBox( hwnd, _("backup finished"), "Stupid Backup", MB_OK | MB_ICONINFORMATION| MB_TASKMODAL);
+	if (checkedShutdown) //Shutdown or not?
+	{
+		Poweroff();
+	}else{
+		MessageBox( hwnd, _("backup finished"), "Stupid Backup", MB_OK | MB_ICONINFORMATION| MB_TASKMODAL);
+	}
 	SendMessage(hwndPB, PBM_SETPOS, 0, 0);
 	ShowWindow(hwndPB, SW_HIDE);
+	
+	
 	
 }
 
@@ -170,6 +227,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
 	case WM_COMMAND:
 	{
+		
+		
 		switch(LOWORD(wparam))
             {
 				case IDC_MAIN_BUTTON:
@@ -212,6 +271,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 				case IDC_ABOUT_BUTTON:
 				{
 					 MessageBox( hwnd, _("Copyright 2017 \n Fabio Di Matteo (pobfdm@gmail.com) \n \n www.freemedialab.org"), "Stupid Backup", MB_OK | MB_ICONINFORMATION| MB_TASKMODAL);
+				}
+				break;
+				
+				case IDC_CHECK_SHUTDOWN:
+				{
+					checkedShutdown = IsDlgButtonChecked(hwnd, IDC_CHECK_SHUTDOWN);
 				}
 				break;
 				
@@ -288,7 +353,8 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPSTR lpCmdLine,int nShow
 	wc.hInstance=hInst;
 	wc.hIcon=LoadIcon(NULL,IDI_WINLOGO);
 	wc.hCursor=LoadCursor(NULL,IDC_ARROW);
-	wc.hbrBackground=(HBRUSH)COLOR_WINDOWFRAME;
+	//wc.hbrBackground=(HBRUSH)COLOR_WINDOWFRAME;
+	wc.hbrBackground = GetSysColorBrush(COLOR_3DFACE);
 	wc.lpszMenuName=NULL;
 	wc.lpszClassName=AppTitle;
 	wc.hIcon = LoadIcon( hInst, MAKEINTRESOURCE(1) );
@@ -303,6 +369,7 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPSTR lpCmdLine,int nShow
 	
 	//disable maximize button
 	SetWindowLong(hwnd, GWL_STYLE, GetWindowLong(hwnd, GWL_STYLE) & ~WS_MAXIMIZEBOX);
+	
 	
 	// Create "Run backup" button
 			hWndButton0=CreateWindowEx(NULL,
@@ -348,11 +415,19 @@ int WINAPI WinMain(HINSTANCE hInst,HINSTANCE hPrevInst,LPSTR lpCmdLine,int nShow
 				GetModuleHandle(NULL),
 				NULL);
 	
+	//Create checkbox for shutdown
+	hWndCheckShutdown = CreateWindow("BUTTON", _("Poweroff at end"),
+                 WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+                 100, 140, 185, 35,        
+                 hwnd, (HMENU) IDC_CHECK_SHUTDOWN, GetModuleHandle(NULL), NULL);
+    CheckDlgButton(hwnd,  IDC_CHECK_SHUTDOWN, BST_UNCHECKED);             
+	
+	
 	// Create progressbar
 			hwndPB = CreateWindowEx(
 				0, PROGRESS_CLASS, (LPCWSTR)NULL,
 				WS_CHILD | WS_VISIBLE| PBS_MARQUEE,
-				100, 160, 120, 25,
+				100, 190, 120, 25,
 				hwnd, (HMENU) 0, hInst, NULL);
 				ShowWindow(hwndPB, SW_HIDE);
 									

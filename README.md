@@ -29,3 +29,11 @@ You can also choose a different destination for backups by creating the
 "destination.txt" with the path to the destination folder, for example:	
 
 	/c/Users/Admin/Desktop/custom/
+
+If you want to specify instead the entire command line, type this in 
+"cmdline.txt" for example:
+	
+	%s -avzr /cygdrive/c/Users/<my user>/Desktop testCmdLine/
+
+Where% s is the executable rsync.exe .
+	

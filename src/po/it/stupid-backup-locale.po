@@ -38,3 +38,6 @@ msgstr "Info su..."
 
 msgid "Exit"
 msgstr "Uscita"
+
+msgid "Poweroff at end"
+msgstr "Spegni alla fine"
